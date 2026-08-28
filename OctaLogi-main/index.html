@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>OCTOLOGIS • Gestão e Registro de Viagens</title>
+  <meta name="description" content="OCTOLOGIS - Sistema de Registro, Upload de Comprovantes e Consulta de Viagens.">
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+
+<body>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <header class="top-navbar wide-mode">
+    <div class="brand-wrapper">
+      <img src="logo.svg" alt="Mascote OctoLogis" class="brand-avatar">
+      <div class="brand-title">OCTOLOGIS</div>
+    </div>
+
+    <nav class="nav-tabs" aria-label="Navegação Principal">
+      <button type="button" class="nav-tab-btn active" id="tabBtnDashboard" onclick="switchView('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="9" rx="1"></rect>
+          <rect x="14" y="3" width="7" height="5" rx="1"></rect>
+          <rect x="14" y="12" width="7" height="9" rx="1"></rect>
+          <rect x="3" y="16" width="7" height="5" rx="1"></rect>
+        </svg>
+        Dashboard
+      </button>
+      <button type="button" class="nav-tab-btn" id="tabBtnForm" onclick="switchView('form')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        Novo Lançamento
+      </button>
+      <button type="button" class="nav-tab-btn" id="tabBtnHistory" onclick="switchView('history')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+        Consultar Viagens
+      </button>
+    </nav>
+
+    <div class="top-nav-right"></div>
+  </header>
+
+  <main class="container wide-mode" id="mainContainer">
+
+    <!-- SEÇÃO DASHBOARD ANALÍTICO -->
+    <section id="viewDashboard" class="view-section active-view">
+      <div class="dashboard-container">
+
+        <!-- Dashboard Header -->
+        <div class="dashboard-header">
+          <div class="dashboard-title-area">
+            <div class="dashboard-badge">
+              <span class="pulse-dot"></span> Visão Geral Executiva
+            </div>
+            <h2>Dashboard de Gestão & Indicadores</h2>
+            <p>Acompanhe custos, tendências, volume de envios e métricas operacionais em tempo real.</p>
+          </div>
+
+          <div class="dashboard-controls">
+            <div class="dashboard-period-filter">
+              <label for="dashPeriodSelect">Período:</label>
+              <select id="dashPeriodSelect" class="form-select dash-select" onchange="onDashPeriodChange()">
+                <option value="all" selected>🌟 Todo o Histórico</option>
+                <option value="month">📆 Mês Atual</option>
+                <option value="last30">🗓️ Últimos 30 dias</option>
+                <option value="year">🏛️ Ano Atual</option>
+              </select>
+            </div>
+            <button type="button" class="btn-refresh" onclick="fetchTrips()" title="Recarregar Dados">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+              </svg>
+              <span>Atualizar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dashboard KPI Cards Grid -->
+        <div class="dash-kpi-grid">
+          <div class="dash-kpi-card glow-indigo">
+            <div class="dash-kpi-header">
+              <span class="dash-kpi-title">Gasto Total</span>
+              <div class="dash-kpi-icon indigo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23"></line>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+              </div>
+            </div>
+            <div class="dash-kpi-body">
+              <div class="dash-kpi-value" id="dashKpiTotalSpent">R$ 0,00</div>
+              <div class="dash-kpi-subtext" id="dashKpiTotalSpentSub">Soma total do período</div>
+            </div>
+          </div>
+
+          <div class="dash-kpi-card glow-blue">
+            <div class="dash-kpi-header">
+              <span class="dash-kpi-title">Total de Operações</span>
+              <div class="dash-kpi-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="1" y="3" width="15" height="13"></rect>
+                  <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                  <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                  <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                </svg>
+              </div>
+            </div>
+            <div class="dash-kpi-body">
+              <div class="dash-kpi-value" id="dashKpiTotalCount">0</div>
+              <div class="dash-kpi-subtext" id="dashKpiRatio">0 Envios • 0 Recolhimentos</div>
+            </div>
+          </div>
+
+          <div class="dash-kpi-card glow-emerald">
+            <div class="dash-kpi-header">
+              <span class="dash-kpi-title">Ticket Médio / Viagem</span>
+              <div class="dash-kpi-icon emerald">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                </svg>
+              </div>
+            </div>
+            <div class="dash-kpi-body">
+              <div class="dash-kpi-value" id="dashKpiAvgTicket">R$ 0,00</div>
+              <div class="dash-kpi-subtext">Custo médio por solicitação</div>
+            </div>
+          </div>
+
+          <div class="dash-kpi-card glow-amber">
+            <div class="dash-kpi-header">
+              <span class="dash-kpi-title">Transportadora Líder</span>
+              <div class="dash-kpi-icon amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"></path>
+                  <path d="M15 18H9"></path>
+                  <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14v10z"></path>
+                  <circle cx="17" cy="18" r="2"></circle>
+                  <circle cx="7" cy="18" r="2"></circle>
+                </svg>
+              </div>
+            </div>
+            <div class="dash-kpi-body">
+              <div class="dash-kpi-value highlight-text" id="dashKpiTopCarrier">-</div>
+              <div class="dash-kpi-subtext" id="dashKpiTopCarrierSub">Maior volume de envios</div>
+            </div>
+          </div>
+
+          <div class="dash-kpi-card glow-purple">
+            <div class="dash-kpi-header">
+              <span class="dash-kpi-title">Setor com Maior Custo</span>
+              <div class="dash-kpi-icon purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+              </div>
+            </div>
+            <div class="dash-kpi-body">
+              <div class="dash-kpi-value highlight-text-purple" id="dashKpiTopSector">-</div>
+              <div class="dash-kpi-subtext" id="dashKpiTopSectorSub">Maior gasto acumulado</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Grid Section -->
+        <div class="dash-charts-grid">
+          <!-- Chart 1: Evolução Mensal dos Gastos -->
+          <div class="dash-chart-card wide-chart">
+            <div class="chart-card-header">
+              <div>
+                <h3 class="chart-title">📈 Evolução dos Gastos</h3>
+                <p class="chart-subtitle">Histórico do investimento em logística por mês</p>
+              </div>
+              <span class="chart-tag">Mensal (R$)</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartMonthlySpent"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart 2: Envios vs Recolhimentos -->
+          <div class="dash-chart-card">
+            <div class="chart-card-header">
+              <div>
+                <h3 class="chart-title">🍩 Tipo de Atividade</h3>
+                <p class="chart-subtitle">Proporção e valores acumulados de Envios e Recolhimentos</p>
+              </div>
+            </div>
+            <div class="chart-wrapper flex-center">
+              <canvas id="chartStatusRatio"></canvas>
+            </div>
+            <div id="statusRatioBreakdown" class="chart-breakdown-container"></div>
+          </div>
+
+          <!-- Chart 3: Gastos por Transportadora -->
+          <div class="dash-chart-card">
+            <div class="chart-card-header">
+              <div>
+                <h3 class="chart-title">🚚 Gastos por Transportadora</h3>
+                <p class="chart-subtitle">Distribuição financeira por transportadora</p>
+              </div>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartCarrierSpent"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart 4: Gastos por Setor -->
+          <div class="dash-chart-card">
+            <div class="chart-card-header">
+              <div>
+                <h3 class="chart-title">🏢 Custos por Setor</h3>
+                <p class="chart-subtitle">Participação dos departamentos nos custos</p>
+              </div>
+            </div>
+            <div class="chart-wrapper flex-center">
+              <canvas id="chartSectorSpent"></canvas>
+            </div>
+            <div id="sectorSpentBreakdown" class="chart-breakdown-container"></div>
+          </div>
+        </div>
+
+        <!-- Recent Activity Quick Section -->
+        <div class="dash-recent-card">
+          <div class="dash-recent-header">
+            <div>
+              <h3 class="dash-recent-title">⚡ Últimas Atividades Registradas</h3>
+              <p class="dash-recent-subtitle">Visualização rápida das 5 movimentações mais recentes</p>
+            </div>
+            <button type="button" class="btn-dash-link" onclick="switchView('history')">
+              Ver Histórico Completo →
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table class="trips-table dash-mini-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Colaborador</th>
+                  <th>Tipo</th>
+                  <th>Transportadora</th>
+                  <th>Setor</th>
+                  <th>Valor</th>
+                </tr>
+              </thead>
+              <tbody id="dashRecentTableBody">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                    Carregando atividades recentes...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="viewForm" class="view-section">
+      <div class="form-card pro-form-card">
+
+        <div class="card-header pro-card-header">
+          <div class="header-left">
+            <span class="system-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                <path d="M2 17l10 5 10-5"></path>
+                <path d="M2 12l10 5 10-5"></path>
+              </svg>
+              OCTOLOGIS • SISTEMA DE LOGÍSTICA
+            </span>
+            <h1 class="card-title">Novo Lançamento de Atividade</h1>
+            <p class="card-subtitle">Cadastre movimentações, informe custos e anexe comprovantes para gravação no banco de dados.</p>
+          </div>
+      
+
+        <form id="activityForm" class="form-content" novalidate>
+
+          <!-- Bloco 1: Informações Gerais -->
+          <div class="form-block-card">
+            <div class="form-block-header">
+              <div class="form-block-icon indigo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <div>
+                <h3 class="form-block-title">1. Informações Gerais & Responsável</h3>
+                <p class="form-block-subtitle">Identificação da data, operador do sistema e colaborador atendido</p>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="campoData" class="form-label">
+                  Data da Viagem / Atividade <span class="required-indicator">*</span>
+                </label>
+                <div class="input-wrapper">
+                  <input type="date" id="campoData" name="data" class="form-input" required>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="campoOperador" class="form-label">
+                  Operador Responsável <span class="required-indicator">*</span>
+                </label>
+                <div class="input-wrapper select-wrapper">
+                  <select id="campoOperador" name="operador" class="form-select" onchange="toggleOutroOperador()" required>
+                    <option value="" disabled selected>Selecione quem realizou a operação</option>
+                    <option value="Marcos Brunoso">Marcos Brunoso</option>
+                    <option value="Sarah Soares">Sarah Soares</option>
+                    <option value="Outro">Outro (especificar)</option>
+                  </select>
+                  <div class="select-arrow">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" id="containerOutroOperador" style="display: none;">
+              <label for="campoOutroOperador" class="form-label">
+                Nome do Outro Operador <span class="required-indicator">*</span>
+              </label>
+              <div class="input-wrapper">
+                <input type="text" id="campoOutroOperador" class="form-input" placeholder="Digite o nome completo do operador responsável...">
+              </div>
+            </div>
+
+            <div class="form-group" style="position: relative;">
+              <label for="campoNome" class="form-label">
+                Nome Completo do Colaborador <span class="required-indicator">*</span>
+              </label>
+              <div class="input-wrapper autocomplete-input-wrapper select-wrapper">
+                <input type="text" id="campoNome" name="nomeCompleto" class="form-input"
+                  placeholder="Clique para selecionar ou digite para buscar no GLPI..." required autocomplete="off"
+                  oninput="handleGlpiUserSearch(event)" onfocus="handleGlpiUserSearch(event)" onclick="handleGlpiUserSearch(event)">
+                <div class="select-arrow" style="pointer-events:none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+              </div>
+              <div class="autocomplete-dropdown" id="glpiUserResults" style="display:none;"></div>
+            </div>
+          </div>
+
+          <!-- Bloco 2: Equipamento & Operação -->
+          <div class="form-block-card">
+            <div class="form-block-header">
+              <div class="form-block-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+              </div>
+              <div>
+                <h3 class="form-block-title">2. Equipamento & Atividade</h3>
+                <p class="form-block-subtitle">Descrição do material e finalidade da solicitação</p>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="campoEquipamento" class="form-label">Equipamento Enviado / Recolhido</label>
+              <div class="input-wrapper">
+                <input type="text" id="campoEquipamento" name="equipamento" class="form-input" placeholder="Ex: Notebook Dell G15, Monitor LG 24', Teclado..." autocomplete="off">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="campoStatus" class="form-label">Tipo de Atividade <span class="required-indicator">*</span></label>
+                <div class="input-wrapper select-wrapper">
+                  <select id="campoStatus" name="status" class="form-select" required>
+                    <option value="" selected>Selecione</option>
+                    <option value="Envio">Envio</option>
+                    <option value="Recolhimento">Recolhimento</option>
+                  </select>
+                  <div class="select-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="campoTipoMovimentacao" class="form-label">Tipo de Movimentação <span class="required-indicator">*</span></label>
+                <div class="input-wrapper select-wrapper">
+                  <select id="campoTipoMovimentacao" name="tipoMovimentacao" class="form-select" required>
+                    <option value="" selected>Selecione</option>
+                    <option value="Desligamento">Desligamento</option>
+                    <option value="Admissão">Admissão</option>
+                    <option value="Troca de Material">Troca de Material</option>
+                  </select>
+                  <div class="select-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloco 3: Financeiro & Logística -->
+          <div class="form-block-card">
+            <div class="form-block-header">
+              <div class="form-block-icon emerald">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23"></line>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="form-block-title">3. Financeiro & Logística</h3>
+                <p class="form-block-subtitle">Custos, centro de custo, transportadora e rastreamento</p>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="campoModalidadePagamento" class="form-label">Modalidade de Pagamento <span class="required-indicator">*</span></label>
+                <div class="input-wrapper select-wrapper">
+                  <select id="campoModalidadePagamento" name="modalidadePagamento" class="form-select" required>
+                    <option value="Pós-pago" selected>Pós-pago</option>
+                    <option value="Pré-pago">Pré-pago</option>
+                  </select>
+                  <div class="select-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="campoValor" class="form-label">Valor (R$) <span class="required-indicator">*</span></label>
+                <div class="input-wrapper">
+                  <input type="text" id="campoValor" name="valor" class="form-input" placeholder="0,00" inputmode="numeric" oninput="handleCurrencyMask(event)" onblur="handleCurrencyBlur(event)" required>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="campoSetor" class="form-label">Setor <span class="required-indicator">*</span></label>
+                <div class="input-wrapper select-wrapper">
+                  <select id="campoSetor" name="setor" class="form-select" required>
+                    <option value="" disabled selected>Selecione o Setor</option>
+                    <option value="Administrative Hub Finance">Administrative Hub Finance</option>
+                    <option value="Administrative Hub General">Administrative Hub General</option>
+                    <option value="Administrative Hub Legal">Administrative Hub Legal</option>
+                    <option value="Administrative Hub People and Culture">Administrative Hub People and Culture</option>
+                    <option value="Business Commercial">Business Commercial</option>
+                    <option value="Business Marketing">Business Marketing</option>
+                    <option value="Business Pitch Development">Business Pitch Development</option>
+                    <option value="Innovation General">Innovation General</option>
+                    <option value="Innovation Research and Development Game Development">Innovation Research and Development Game Development</option>
+                    <option value="Innovation Research and Development Information Technology">Innovation Research and Development Information Technology</option>
+                    <option value="Innovation Research and Development Pipeline">Innovation Research and Development Pipeline</option>
+                    <option value="Operational 3D Development General">Operational 3D Development General</option>
+                    <option value="Operational 3D Development Simulation">Operational 3D Development Simulation</option>
+                    <option value="Operational Animation 2D Animation">Operational Animation 2D Animation</option>
+                    <option value="Operational Animation 3D Animation">Operational Animation 3D Animation</option>
+                    <option value="Operational Animation Editing">Operational Animation Editing</option>
+                    <option value="Operational Animation Rigging">Operational Animation Rigging</option>
+                    <option value="Operational Animation Storyboard">Operational Animation Storyboard</option>
+                    <option value="Operational Creative Direction">Operational Creative Direction</option>
+                    <option value="Operational Creative Project Management">Operational Creative Project Management</option>
+                    <option value="Operational General">Operational General</option>
+                    <option value="Operational Post Production Still">Operational Post Production Still</option>
+                    <option value="Operational Post Production Video">Operational Post Production Video</option>
+                    <option value="Operational Project Production">Operational Project Production</option>
+                    <option value="Operational Set Production">Operational Set Production</option>
+                    <option value="Operational Visual Development">Operational Visual Development</option>
+                    <option value="Strategy Executive Management">Strategy Executive Management</option>
+                  </select>
+                  <div class="select-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="campoCentroCusto" class="form-label">Centro de Custo <span class="required-indicator">*</span></label>
+                <div class="input-wrapper">
+                  <input type="text" id="campoCentroCusto" name="centroCusto" class="form-input" placeholder="Puxado do GLPI ao selecionar o colaborador" readonly required style="background: rgba(15, 23, 42, 0.6); cursor: not-allowed; opacity: 0.9;">
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="campoTransportadora" class="form-label">Transportadora</label>
+                <div class="input-wrapper select-wrapper">
+                  <select id="campoTransportadora" name="transportadora" class="form-select" onchange="toggleOutraTransportadora()">
+                    <option value="" selected>Selecionar Transportadora</option>
+                    <option value="Correios">Correios</option>
+                    <option value="LOGGI">LOGGI</option>
+                    <option value="Jadlog">Jadlog</option>
+                    <option value="DHL">DHL Express</option>
+                    <option value="FedEx">FedEx</option>
+                    <option value="Braspress">Braspress</option>
+                    <option value="Total Express">Total Express</option>
+                    <option value="Azul Cargo">Azul Cargo Express</option>
+                    <option value="Lalamove">Lalamove</option>
+                    <option value="J&T Express">J&T Express</option>
+                    <option value="Mercado Envios">Mercado Envios</option>
+                    <option value="Flash Courier">Flash Courier</option>
+                    <option value="Motoboy / UBER">Motoboy / UBER</option>
+                    <option value="Outra">OUTRA</option>
+                  </select>
+                  <div class="select-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="campoCodigoRastreio" class="form-label">Código de Rastreio</label>
+                <div class="input-wrapper">
+                  <input type="text" id="campoCodigoRastreio" name="codigoRastreio" class="form-input" placeholder="Ex: AA123456789BR ou NL123456789BR" autocomplete="off">
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" id="containerOutraTransportadora" style="display: none;">
+              <label for="campoOutraTransportadora" class="form-label">Nome da Transportadora Personalizada <span class="required-indicator">*</span></label>
+              <div class="input-wrapper">
+                <input type="text" id="campoOutraTransportadora" class="form-input" placeholder="Digite o nome da transportadora...">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="campoLinkCard" class="form-label">Link do Card / Chamado</label>
+              <div class="input-wrapper">
+                <input type="text" id="campoLinkCard" name="linkCard" class="form-input" placeholder="https://... ou ID do Card">
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloco 4: Comprovantes & Anexos -->
+          <div class="form-block-card">
+            <div class="form-block-header">
+              <div class="form-block-icon amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="form-block-title">4. Comprovantes & Recibos</h3>
+                <p class="form-block-subtitle">Anexe fotos de notas fiscais, recibos de transportadoras ou fotos do pacote</p>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <div class="file-upload-zone" id="fileDropZone">
+                <input type="file" id="campoArquivo" name="arquivo" class="file-input-hidden" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+                <div class="upload-prompt" id="uploadPrompt">
+                  <div class="upload-icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                  </div>
+                  <p class="upload-title"><span>Clique para selecionar</span> ou arraste arquivos aqui</p>
+                  <p class="upload-subtitle">PDF, PNG, JPG, DOC, XLS (Máx. 10MB por arquivo - Múltiplos permitidos)</p>
+                </div>
+              </div>
+
+              <!-- Multi-file preview container -->
+              <div class="files-selected-container" id="filesSelectedContainer" style="display: none;">
+                <div class="files-selected-header">
+                  <div class="files-selected-count">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                    </svg>
+                    <span id="filesCountSummary">0 arquivos selecionados (0 KB)</span>
+                  </div>
+                  <div class="files-selected-actions">
+                    <button type="button" class="btn-add-more-files" id="btnAddMoreFiles" title="Adicionar mais arquivos">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                      Adicionar mais
+                    </button>
+                    <button type="button" class="btn-clear-all-files" id="btnClearAllFiles" title="Remover todos">
+                      Limpar todos
+                    </button>
+                  </div>
+                </div>
+                <div class="selected-files-list" id="selectedFilesList"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-submit-wrapper">
+            <button type="submit" id="btnSubmit" class="btn-submit btn-submit-pro">
+              <span class="spinner" id="btnSpinner"></span>
+              <span id="btnText">⚡ Salvar Lançamento no Banco</span>
+            </button>
+          </div>
+
+        </form>
+
+        <div id="feedbackMessage" class="feedback-message" role="alert"></div>
+
+      </div>
+    </section>
+
+    <section id="viewHistory" class="view-section">
+      <div class="history-card">
+
+        <div class="history-header">
+          <div class="history-title-area">
+            <h2>Histórico e Extratos de Viagens</h2>
+            <p>Acompanhe, filtre por período e emita extratos em PDF das atividades registradas.</p>
+          </div>
+          <div class="history-actions-wrapper">
+            <button type="button" class="btn-export-excel" id="btnExportCSV" onclick="exportFilteredTripsCSV()"
+              title="Exportar Dados Filtrados em Excel / CSV">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <path d="M8 13h8"></path>
+                <path d="M8 17h8"></path>
+              </svg>
+              <span>Exportar CSV</span>
+            </button>
+            <button type="button" class="btn-export-pdf" id="btnOpenStatementModal" onclick="openPdfStatementModal()"
+              title="Gerar Extrato em PDF">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+              <span>Gerar Extrato PDF</span>
+            </button>
+            <button type="button" class="btn-refresh" id="btnRefreshHistory" onclick="fetchTrips()"
+              title="Recarregar Dados">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+              </svg>
+              <span>Atualizar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect x="1" y="3" width="15" height="13"></rect>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+              </svg>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-label">Total de Viagens</span>
+              <span class="kpi-value" id="kpiTotalTrips">0</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-icon green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-label">Gasto Total</span>
+              <span class="kpi-value" id="kpiTotalSpent">R$ 0,00</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-icon yellow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 14 14"></polyline>
+              </svg>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-label">Envios / Recolhimentos</span>
+              <span class="kpi-value" id="kpiStatusCount">0 / 0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="period-filter-bar">
+          <div class="period-filter-header">
+            <div class="period-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              <span>Filtrar Período:</span>
+            </div>
+            <div class="period-pills-group" id="periodPills">
+              <button type="button" class="period-pill active" data-period="all"
+                onclick="selectPeriodFilter('all')">Todos</button>
+              <button type="button" class="period-pill" data-period="daily" onclick="selectPeriodFilter('daily')">Diário
+                (Hoje)</button>
+              <button type="button" class="period-pill" data-period="weekly"
+                onclick="selectPeriodFilter('weekly')">Semanal</button>
+              <button type="button" class="period-pill" data-period="biweekly"
+                onclick="selectPeriodFilter('biweekly')">Quinzenal</button>
+              <button type="button" class="period-pill" data-period="monthly"
+                onclick="selectPeriodFilter('monthly')">Mensal</button>
+              <button type="button" class="period-pill" data-period="yearly"
+                onclick="selectPeriodFilter('yearly')">Anual</button>
+              <button type="button" class="period-pill" data-period="custom"
+                onclick="selectPeriodFilter('custom')">Personalizado</button>
+            </div>
+          </div>
+
+          <div class="custom-date-range" id="customDateRangeContainer" style="display: none;">
+            <div class="date-input-group">
+              <label for="filterStartDate">Data Inicial:</label>
+              <input type="date" id="filterStartDate" class="form-input" onchange="applyFilters()">
+            </div>
+            <div class="date-input-group">
+              <label for="filterEndDate">Data Final:</label>
+              <input type="date" id="filterEndDate" class="form-input" onchange="applyFilters()">
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <div class="search-input-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="filterSearch" class="form-input"
+              placeholder="Buscar por nome, transportadora, setor ou centro de custo..." oninput="applyFilters()">
+          </div>
+
+          <div class="select-wrapper">
+            <select id="filterStatus" class="form-select" onchange="applyFilters()">
+              <option value="">Todos os Tipos</option>
+              <option value="Envio">Apenas Envios</option>
+              <option value="Recolhimento">Apenas Recolhimentos</option>
+            </select>
+            <div class="select-arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </div>
+
+          <div class="select-wrapper">
+            <select id="filterTransportadora" class="form-select" onchange="applyFilters()">
+              <option value="">Todas as Transportadoras</option>
+              <option value="Correios">Correios</option>
+              <option value="LOGGI">LOGGI</option>
+              <option value="Jadlog">Jadlog</option>
+              <option value="DHL">DHL Express</option>
+              <option value="FedEx">FedEx</option>
+              <option value="Braspress">Braspress</option>
+              <option value="Total Express">Total Express</option>
+              <option value="Azul Cargo">Azul Cargo Express</option>
+              <option value="Lalamove">Lalamove</option>
+              <option value="J&T Express">J&T Express</option>
+              <option value="Mercado Envios">Mercado Envios</option>
+              <option value="Flash Courier">Flash Courier</option>
+              <option value="Motoboy / UBER">Motoboy / UBER</option>
+              <option value="Outra">Outra</option>
+            </select>
+            <div class="select-arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </div>
+
+          <div class="input-wrapper">
+            <input type="date" id="filterDate" class="form-input" title="Filtrar por data" onchange="applyFilters()">
+          </div>
+
+          <button type="button" class="btn-table-action" onclick="clearFilters()" title="Limpar Filtros">
+            Limpar
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="trips-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Operador</th>
+                <th>Colaborador</th>
+                <th>Equipamento</th>
+                <th>Tipo</th>
+                <th>Movimentação</th>
+                <th>Modalidade</th>
+                <th>Transportadora</th>
+                <th>Rastreio</th>
+                <th>Centro / Setor</th>
+                <th>Valor</th>
+                <th>Card</th>
+                <th>Comprovante</th>
+                <th style="text-align:center;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tripsTableBody">
+              <tr>
+                <td colspan="14">
+                  <div class="table-empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                      stroke-linejoin="round">
+                      <rect x="1" y="3" width="15" height="13"></rect>
+                      <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                      <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                      <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>
+                    <p>Carregando viagens ...</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <div class="modal-overlay" id="attachmentModal">
+    <div class="modal-card" style="max-width: 720px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="attachmentModalTitle">Comprovantes Anexados</h3>
+        <button type="button" class="btn-modal-close" onclick="closeAttachmentModal()" title="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="attachment-preview-container" id="attachmentModalBody">
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="statementModal">
+    <div class="modal-card statement-modal-card">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="kpi-icon blue" style="width:36px; height:36px; border-radius:8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" style="width:20px; height:20px;">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin:0;">Gerar Relatório em PDF</h3>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">Selecione o período desejado e faça o download direto do documento formatado em A4.</p>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closePdfStatementModal()" title="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="statement-controls-bar">
+        <div class="statement-ctrl-group">
+          <label for="modalPeriodSelect">Período:</label>
+          <select id="modalPeriodSelect" class="form-select" onchange="onModalPeriodChange()">
+            <option value="daily">📅 Diário (Hoje)</option>
+            <option value="weekly">🗓️ Semanal (Últimos 7 dias)</option>
+            <option value="biweekly">🌓 Quinzenal (Últimos 15 dias)</option>
+            <option value="monthly" selected>📆 Mensal (Mês Atual)</option>
+            <option value="yearly">🏛️ Anual (Ano Atual)</option>
+            <option value="all">🌟 Todo o Histórico</option>
+            <option value="custom">⚙️ Personalizado (De / Até)</option>
+          </select>
+        </div>
+
+        <div class="statement-ctrl-group" id="modalCustomDateGroup" style="display:none;">
+          <label>Intervalo:</label>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <input type="date" id="modalStartDate" class="form-input" style="padding:0.4rem 0.6rem; font-size:0.82rem;"
+              onchange="updatePdfPreview()">
+            <span style="color:var(--text-muted); font-size:0.8rem;">até</span>
+            <input type="date" id="modalEndDate" class="form-input" style="padding:0.4rem 0.6rem; font-size:0.82rem;"
+              onchange="updatePdfPreview()">
+          </div>
+        </div>
+
+        <div class="statement-ctrl-group">
+          <label for="modalStatusFilter">Tipo:</label>
+          <select id="modalStatusFilter" class="form-select" onchange="updatePdfPreview()">
+            <option value="">Todos (Envio e Recolhimento)</option>
+            <option value="Envio">Apenas Envios</option>
+            <option value="Recolhimento">Apenas Recolhimentos</option>
+          </select>
+        </div>
+
+        <div class="statement-ctrl-group">
+          <label for="modalCarrierFilter">Transportadora:</label>
+          <select id="modalCarrierFilter" class="form-select" onchange="updatePdfPreview()">
+            <option value="">Todas</option>
+            <option value="Correios">Correios</option>
+            <option value="LOGGI">LOGGI</option>
+            <option value="Jadlog">Jadlog</option>
+            <option value="DHL">DHL Express</option>
+            <option value="FedEx">FedEx</option>
+            <option value="Braspress">Braspress</option>
+            <option value="Total Express">Total Express</option>
+            <option value="Azul Cargo">Azul Cargo</option>
+            <option value="Lalamove">Lalamove</option>
+            <option value="J&T Express">J&T Express</option>
+            <option value="Mercado Envios">Mercado Envios</option>
+            <option value="Flash Courier">Flash Courier</option>
+            <option value="Motoboy / UBER">Motoboy / UBER</option>
+            <option value="Outra">Outra</option>
+          </select>
+        </div>
+
+        <div class="statement-actions-right">
+          <button type="button" class="btn-statement-download" id="btnDownloadPdf" onclick="downloadPdfStatement()"
+            title="Baixar Arquivo PDF Formatado A4">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span id="btnDownloadPdfText">Baixar Relatório (PDF)</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="statement-preview-wrapper">
+        <div class="statement-paper" id="statementPrintArea">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE EDIÇÃO DE VIAGEM -->
+  <div class="modal-overlay" id="editTripModal">
+    <div class="modal-card" style="max-width: 600px; width: 100%; box-sizing: border-box;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="kpi-icon blue" style="width:36px; height:36px; border-radius:8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" style="width:20px; height:20px;">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin:0;">Editar Viagem</h3>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">Altere os dados do registro e salve as
+              modificações no banco de dados.</p>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeEditTripModal()" title="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <form id="editTripForm" onsubmit="handleEditTripSubmit(event)"
+        style="display:flex; flex-direction:column; gap:1.15rem; margin-top:1.2rem; width:100%; box-sizing:border-box;">
+        <input type="hidden" id="editTripId">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editCampoData" class="form-label">Data</label>
+            <input type="date" id="editCampoData" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label for="editCampoOperador" class="form-label">Operador Responsável</label>
+            <div class="select-wrapper">
+              <select id="editCampoOperador" class="form-select" onchange="toggleEditOutroOperador()" required>
+                <option value="Marcos Brunoso">Marcos Brunoso</option>
+                <option value="Sarah Soares">Sarah Soares</option>
+                <option value="Outro">Outro (especificar)</option>
+              </select>
+              <div class="select-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" id="editContainerOutroOperador" style="display: none;">
+          <label for="editCampoOutroOperador" class="form-label">Nome do Outro Operador</label>
+          <input type="text" id="editCampoOutroOperador" class="form-input"
+            placeholder="Digite o nome completo do operador...">
+        </div>
+
+        <div class="form-group" style="position: relative;">
+          <label for="editCampoNome" class="form-label">Nome Completo do Colaborador</label>
+          <div class="input-wrapper autocomplete-input-wrapper select-wrapper">
+            <input type="text" id="editCampoNome" class="form-input" placeholder="Clique para selecionar ou digite para filtrar..." required autocomplete="off"
+              oninput="handleEditGlpiUserSearch(event)" onfocus="handleEditGlpiUserSearch(event)" onclick="handleEditGlpiUserSearch(event)">
+            <div class="select-arrow" style="pointer-events:none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </div>
+          <div class="autocomplete-dropdown" id="editGlpiUserResults" style="display:none;"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="editCampoEquipamento" class="form-label">Equipamento Enviado / Recolhido</label>
+          <input type="text" id="editCampoEquipamento" class="form-input" placeholder="Ex: Notebook Dell, Monitor LG...">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editCampoStatus" class="form-label">Tipo de Atividade</label>
+            <div class="select-wrapper">
+              <select id="editCampoStatus" class="form-select" required>
+                <option value="Envio">Envio</option>
+                <option value="Recolhimento">Recolhimento</option>
+              </select>
+              <div class="select-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="editCampoTipoMovimentacao" class="form-label">Tipo de Movimentação</label>
+            <div class="select-wrapper">
+              <select id="editCampoTipoMovimentacao" class="form-select" required>
+                <option value="Desligamento">Desligamento</option>
+                <option value="Admissão">Admissão</option>
+                <option value="Troca de Material">Troca de Material</option>
+              </select>
+              <div class="select-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editCampoModalidadePagamento" class="form-label">Modalidade de Pagamento</label>
+            <div class="select-wrapper">
+              <select id="editCampoModalidadePagamento" class="form-select" required>
+                <option value="Pós-pago">Pós-pago</option>
+                <option value="Pré-pago">Pré-pago</option>
+              </select>
+              <div class="select-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="editCampoValor" class="form-label">Valor (R$)</label>
+            <input type="text" id="editCampoValor" class="form-input" placeholder="0,00" inputmode="numeric"
+              oninput="handleCurrencyMask(event)" onblur="handleCurrencyBlur(event)" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editCampoSetor" class="form-label">Setor</label>
+            <div class="select-wrapper">
+              <select id="editCampoSetor" class="form-select" required>
+                <option value="" disabled selected>Selecione o Setor</option>
+                <option value="Administrative Hub Finance">Administrative Hub Finance</option>
+                <option value="Administrative Hub General">Administrative Hub General</option>
+                <option value="Administrative Hub Legal">Administrative Hub Legal</option>
+                <option value="Administrative Hub People and Culture">Administrative Hub People and Culture</option>
+                <option value="Business Commercial">Business Commercial</option>
+                <option value="Business Marketing">Business Marketing</option>
+                <option value="Business Pitch Development">Business Pitch Development</option>
+                <option value="Innovation General">Innovation General</option>
+                <option value="Innovation Research and Development Game Development">Innovation Research and Development Game Development</option>
+                <option value="Innovation Research and Development Information Technology">Innovation Research and Development Information Technology</option>
+                <option value="Innovation Research and Development Pipeline">Innovation Research and Development Pipeline</option>
+                <option value="Operational 3D Development General">Operational 3D Development General</option>
+                <option value="Operational 3D Development Simulation">Operational 3D Development Simulation</option>
+                <option value="Operational Animation 2D Animation">Operational Animation 2D Animation</option>
+                <option value="Operational Animation 3D Animation">Operational Animation 3D Animation</option>
+                <option value="Operational Animation Editing">Operational Animation Editing</option>
+                <option value="Operational Animation Rigging">Operational Animation Rigging</option>
+                <option value="Operational Animation Storyboard">Operational Animation Storyboard</option>
+                <option value="Operational Creative Direction">Operational Creative Direction</option>
+                <option value="Operational Creative Project Management">Operational Creative Project Management</option>
+                <option value="Operational General">Operational General</option>
+                <option value="Operational Post Production Still">Operational Post Production Still</option>
+                <option value="Operational Post Production Video">Operational Post Production Video</option>
+                <option value="Operational Project Production">Operational Project Production</option>
+                <option value="Operational Set Production">Operational Set Production</option>
+                <option value="Operational Visual Development">Operational Visual Development</option>
+                <option value="Strategy Executive Management">Strategy Executive Management</option>
+              </select>
+              <div class="select-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="editCampoCentroCusto" class="form-label">Centro de Custo</label>
+            <input type="text" id="editCampoCentroCusto" class="form-input" readonly placeholder="Puxado do GLPI ao selecionar o colaborador" required style="background: rgba(15, 23, 42, 0.6); cursor: not-allowed; opacity: 0.9;">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editCampoTransportadora" class="form-label">Transportadora</label>
+            <div class="select-wrapper">
+              <select id="editCampoTransportadora" class="form-select" onchange="toggleEditOutraTransportadora()">
+                <option value="">Selecionar Transportadora</option>
+                <option value="Correios">Correios</option>
+                <option value="LOGGI">LOGGI</option>
+                <option value="Jadlog">Jadlog</option>
+                <option value="DHL">DHL Express</option>
+                <option value="FedEx">FedEx</option>
+                <option value="Braspress">Braspress</option>
+                <option value="Total Express">Total Express</option>
+                <option value="Azul Cargo">Azul Cargo Express</option>
+                <option value="Lalamove">Lalamove</option>
+                <option value="J&T Express">J&T Express</option>
+                <option value="Mercado Envios">Mercado Envios</option>
+                <option value="Flash Courier">Flash Courier</option>
+                <option value="Motoboy / UBER">Motoboy / UBER</option>
+                <option value="Outra">OUTRA</option>
+              </select>
+              <div class="select-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="editCampoCodigoRastreio" class="form-label">Código de Rastreio</label>
+            <input type="text" id="editCampoCodigoRastreio" class="form-input" placeholder="Ex: AA123456789BR">
+          </div>
+        </div>
+
+        <div class="form-group" id="editContainerOutraTransportadora" style="display: none;">
+          <label for="editCampoOutraTransportadora" class="form-label">
+            Nome da Transportadora Personalizada
+            <span class="required-indicator">*</span>
+          </label>
+          <div class="input-wrapper">
+            <input type="text" id="editCampoOutraTransportadora" class="form-input"
+              placeholder="Digite o nome da transportadora...">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="editCampoLinkCard" class="form-label">Link ou ID do Card</label>
+          <input type="text" id="editCampoLinkCard" class="form-input" placeholder="https://... ou #1234">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Comprovantes / Anexos Existentes</label>
+          <div id="editCurrentAttachmentArea" style="margin-bottom:8px;"></div>
+
+          <label class="form-label" style="margin-top:6px; font-size:0.78rem;">Adicionar Novos Comprovantes
+            (Opcional)</label>
+          <input type="file" id="editCampoArquivo" class="form-input" style="font-size:0.82rem;" multiple
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+          <small style="color:var(--text-muted); font-size:0.75rem; margin-top:3px; display:block;">Você pode selecionar
+            múltiplos arquivos (Máx. 10MB por arquivo).</small>
+          <div id="editNewFilesList" class="selected-files-list" style="margin-top:6px;"></div>
+        </div>
+
+        <div id="editFeedbackMessage" style="display:none;"></div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:0.5rem;">
+          <button type="button" class="btn-statement-print" onclick="closeEditTripModal()"
+            style="padding:0.65rem 1.25rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-submit" id="btnSaveEdit"
+            style="width:auto; padding:0.65rem 1.5rem; margin:0;">
+            <span id="btnSaveEditText">Salvar Alterações</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-card confirm-modal-card">
+      <div class="confirm-icon-wrapper" id="confirmIconWrapper">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          <line x1="10" y1="11" x2="10" y2="17"></line>
+          <line x1="14" y1="11" x2="14" y2="17"></line>
+        </svg>
+      </div>
+
+      <h3 class="confirm-title" id="confirmTitle">Excluir Lançamento</h3>
+      <p class="confirm-message" id="confirmMessage">Deseja realmente remover este registro de viagem?</p>
+
+      <div class="confirm-details-box" id="confirmDetailsBox">
+        <div class="confirm-detail-row">
+          <span class="confirm-detail-label">Solicitante:</span>
+          <span class="confirm-detail-value" id="confirmDetailName">-</span>
+        </div>
+        <div class="confirm-detail-row">
+          <span class="confirm-detail-label">Data:</span>
+          <span class="confirm-detail-value" id="confirmDetailDate">-</span>
+        </div>
+        <div class="confirm-detail-row">
+          <span class="confirm-detail-label">Transportadora:</span>
+          <span class="confirm-detail-value" id="confirmDetailCarrier">-</span>
+        </div>
+        <div class="confirm-detail-row">
+          <span class="confirm-detail-label">Valor:</span>
+          <span class="confirm-detail-value highlight" id="confirmDetailValue">R$ 0,00</span>
+        </div>
+        <div class="confirm-detail-row">
+          <span class="confirm-detail-label">Tipo:</span>
+          <span class="confirm-detail-value" id="confirmDetailStatus">-</span>
+        </div>
+      </div>
+
+      <p class="confirm-warning">⚠️ Esta operação é permanente e não poderá ser desfeita.</p>
+
+      <div class="confirm-actions">
+        <button type="button" class="btn-confirm-cancel" id="btnConfirmCancel">
+          Cancelar
+        </button>
+        <button type="button" class="btn-confirm-accept" id="btnConfirmAccept">
+          <span class="spinner" id="btnConfirmSpinner"
+            style="display:none; width:14px; height:14px; margin-right:4px;"></span>
+          <span id="btnConfirmAcceptText">Sim, Excluir</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
